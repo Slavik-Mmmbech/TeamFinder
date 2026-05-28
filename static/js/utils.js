@@ -1,4 +1,3 @@
-// Global utilities
 (function(){
   // CSRF cookie utility
   if (!window.getCookie) {
@@ -18,7 +17,6 @@
     }
   }
 
-  // Minimal toast notifications
   if (!window.toast) {
     function ensureContainer() {
       let c = document.getElementById('tf-toast-container');

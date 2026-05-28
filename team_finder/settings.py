@@ -5,7 +5,9 @@ from decouple import config, AutoConfig
 from django.core.management.utils import get_random_secret_key
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 DJANGO_FORMS_TEMPLATES = Path(django.__file__).resolve().parent / "forms" / "templates"
+
 _auto_config = AutoConfig(search_path=BASE_DIR)
 
 SECRET_KEY = _auto_config('DJANGO_SECRET_KEY', default=None)

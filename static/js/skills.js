@@ -1,4 +1,4 @@
-// Profile skills UI logic
+// UI логика навыков пользователя
 (function(){
   document.addEventListener("DOMContentLoaded", () => {
     const container = document.getElementById("skills-container");
