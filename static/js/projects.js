@@ -1,4 +1,4 @@
-// Project-specific JS (complete project action + toggle participate)
+// Проектно-специализированный JS
 (function(){
   document.addEventListener("DOMContentLoaded", function() {
     const completeBtn = document.getElementById("complete-project-btn");
@@ -8,10 +8,12 @@
         const projectId = completeBtn.dataset.id;
         if (!projectId) return;
 
+        const csrfToken = window.getCookie ? window.getCookie("csrftoken") : (document.querySelector('meta[name="csrf-token"]')?.content || "");
         fetch(`/projects/${projectId}/complete/`, {
           method: "POST",
+          credentials: "same-origin",
           headers: {
-            "X-CSRFToken": window.getCookie ? window.getCookie("csrftoken") : "",
+            "X-CSRFToken": csrfToken,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({})
@@ -50,8 +52,9 @@
 
         fetch(`/projects/${projectId}/toggle-participate/`, {
           method: "POST",
+          credentials: "same-origin",
           headers: {
-            "X-CSRFToken": window.getCookie ? window.getCookie("csrftoken") : "",
+            "X-CSRFToken": csrfToken,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({})
@@ -59,8 +62,9 @@
         .then(resp => resp.json())
         .then(data => {
           if (data.status !== "ok") {
-            if (window.toast) window.toast("Ошибка при изменении участия", { type: 'error' });
-            else alert("Ошибка при изменении участия");
+            const message = data.error || "Ошибка при изменении участия";
+            if (window.toast) window.toast(message, { type: 'error' });
+            else alert(message);
             return;
           }
 

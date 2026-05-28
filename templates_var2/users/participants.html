@@ -44,6 +44,20 @@
         </div>
     {% endif %}
 
+    <div class="skills-filter-panel">
+        <h3>Навыки</h3>
+        <div class="skills-list">
+            {% for skill in all_skills %}
+                <a href="?skill={{ skill.name|urlencode }}" class="skill-link {% if active_skill == skill.name %}active{% endif %}">{{ skill.name }}</a>
+            {% empty %}
+                <p>Навыки не найдены</p>
+            {% endfor %}
+        </div>
+        {% if active_skill %}
+            <a href="/users/list" class="filter-reset">Сбросить навык</a>
+        {% endif %}
+    </div>
+
     {% if participants %}
     <div class="participants-grid">
         {% for participant in participants %}

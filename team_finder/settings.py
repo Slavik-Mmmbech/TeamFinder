@@ -1,18 +1,26 @@
 from pathlib import Path
-from decouple import config
+import os
+import django
+from decouple import config, AutoConfig
+from django.core.management.utils import get_random_secret_key
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+DJANGO_FORMS_TEMPLATES = Path(django.__file__).resolve().parent / "forms" / "templates"
+_auto_config = AutoConfig(search_path=BASE_DIR)
 
-# TODO: Создать и заполнить .env, ориентируясь на .env_example
+SECRET_KEY = _auto_config('DJANGO_SECRET_KEY', default=None)
+if not SECRET_KEY:
+    try:
+        SECRET_KEY = config('DJANGO_SECRET_KEY')
+    except Exception:
+        SECRET_KEY = None
 
-SECRET_KEY = config("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or get_random_secret_key()
 
-DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
+DEBUG = _auto_config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = []
-
-
-# Application definition
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -21,6 +29,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Локальные приложения
+    "projects",
+    "users",
 ]
 
 MIDDLEWARE = [
@@ -38,7 +49,10 @@ ROOT_URLCONF = "team_finder.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / f"templates_var{config('TASK_VERSION', default='1')}"],
+        "DIRS": [
+            BASE_DIR / f"templates_var{_auto_config('TASK_VERSION', default='1')}",
+            DJANGO_FORMS_TEMPLATES,
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -59,11 +73,11 @@ WSGI_APPLICATION = "team_finder.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB"),
-        "USER": config("POSTGRES_USER"),
-        "PASSWORD": config("POSTGRES_PASSWORD"),
-        "HOST": config("POSTGRES_HOST", default="localhost"),
-        "PORT": config("POSTGRES_PORT", default=5432, cast=int),
+        "NAME": _auto_config("POSTGRES_DB"),
+        "USER": _auto_config("POSTGRES_USER"),
+        "PASSWORD": _auto_config("POSTGRES_PASSWORD"),
+        "HOST": _auto_config("POSTGRES_HOST", default="localhost"),
+        "PORT": _auto_config("POSTGRES_PORT", default=5432, cast=int),
     }
 }
 
@@ -116,3 +130,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Use custom user model
+AUTH_USER_MODEL = "users.User"
+
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"

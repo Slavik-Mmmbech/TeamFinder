@@ -55,6 +55,22 @@
             </div>
         </div>
 
+        <div class="form-field">
+            <label>Навыки</label>
+            <div id="user-skills-container" class="skills-container">
+                {% for skill in user.skills.all %}
+                    <span class="skill-chip" data-id="{{ skill.id }}">{{ skill.name }} <button type="button" class="remove-skill-btn" title="Удалить">×</button></span>
+                {% empty %}
+                    <span class="skill-empty">Навыки не указаны</span>
+                {% endfor %}
+                <button type="button" id="add-user-skill-btn" class="add-skill-btn">Добавить навык</button>
+                <div id="user-skill-input-wrapper" class="skill-input-wrapper hidden">
+                    <input id="user-skill-input" type="text" placeholder="Начните вводить навык..." />
+                    <ul id="user-skill-suggestions" class="skill-suggestions hidden"></ul>
+                </div>
+            </div>
+        </div>
+
         {% if form.errors %}
         <div class="form-errors">
             {% for field, errors in form.errors.items %}
@@ -71,4 +87,9 @@
         </div>
     </form>
 </div>
+
+{% block extra_js %}
+<script src="{% static 'js/users_skills.js' %}"></script>
+{% endblock %}
+
 {% endblock %}
