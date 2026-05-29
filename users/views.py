@@ -1,16 +1,17 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.core.paginator import Paginator
-from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.views.decorators.http import require_POST
-from projects.models import Project
 import json
 
-from .models import User, Skill
-from .forms import RegistrationForm, LoginForm, EditProfileForm, ChangePasswordForm
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseBadRequest, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.db.models import Count
+from django.views.decorators.http import require_POST
 
+from constants import STATUS_OPEN, STATUS_CLOSED, PAG_PER_PAGE, RESULTS_END
+from .forms import RegistrationForm, LoginForm, EditProfileForm, ChangePasswordForm
+from .models import User, Skill
+from core.service import paginate
 
 def participants_list(request):
     skill = request.GET.get("skill")
@@ -34,9 +35,7 @@ def participants_list(request):
     else:
         participants = User.objects.all()
 
-    paginator = Paginator(participants.order_by("id"), 12)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginate(request, participants.order_by("id"), PAG_PER_PAGE)
 
     all_skills = Skill.objects.all()
 
@@ -45,39 +44,43 @@ def participants_list(request):
 
 def user_detail(request, user_id):
     user = get_object_or_404(User, pk=user_id)
-    return render(request, "users/user-details.html", {"user": user})
+    owned_projects = (
+        user.owned_projects.select_related("owner")
+        .annotate(participant_count=Count("participants"))
+        .order_by("-created_at")
+    )
+    return render(
+        request,
+        "users/user-details.html",
+        {
+            "user": user,
+            "owned_projects": owned_projects,
+            "STATUS_OPEN": STATUS_OPEN,
+            "STATUS_CLOSED": STATUS_CLOSED
+        },
+    )
 
 
 def register(request):
     """Регистрация нового пользователя"""
-    if request.method == "POST":
-        form = RegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            # сразу вход после регистрации
-            login(request, user)
-            return redirect("projects:project_list")
-    else:
-        form = RegistrationForm()
+    form = RegistrationForm(request.POST or None)
+    if form.is_valid():
+        user = form.save()
+        login(request, user)
+        return redirect("projects:project_list")
     return render(request, "users/register.html", {"form": form})
 
 
 def login_view(request):
-    """Вход по email и паролю"""
-    if request.method == "POST":
-        form = LoginForm(request.POST)
-        if form.is_valid():
-            email = form.cleaned_data["email"]
-            password = form.cleaned_data["password"]
-            # использую username=email при authenticate, т.к. USERNAME_FIELD='email'
-            user = authenticate(request, username=email, password=password)
-            if user is not None:
-                login(request, user)
-                return redirect("projects:project_list")
-            else:
-                messages.error(request, "Неверный email или пароль")
-    else:
-        form = LoginForm()
+    form = LoginForm(request.POST or None)
+    if form.is_valid():
+        email = form.cleaned_data["email"]
+        password = form.cleaned_data["password"]
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            login(request, user)    
+            return redirect("projects:project_list")
+        messages.error(request, "Неверный email или пароль")
     return render(request, "users/login.html", {"form": form})
 
 
@@ -88,49 +91,48 @@ def logout_view(request):
 
 @login_required
 def edit_profile(request):
-    """Редактирование профиля пользователя"""
-    if request.method == "POST":
-        form = EditProfileForm(request.POST, request.FILES, instance=request.user)
-        if form.is_valid():
-            user = form.save()
-            messages.success(request, "Профиль сохранён")
-            return redirect("users:user_detail", user_id=user.id)
-    else:
-        form = EditProfileForm(instance=request.user)
+    form = EditProfileForm(
+        request.POST or None, 
+        request.FILES or None, 
+        instance=request.user
+    )
+    if form.is_valid():
+        user = form.save()
+        messages.success(request, "Профиль сохранён")
+        return redirect("users:user_detail", user_id=user.id)
     return render(request, "users/edit_profile.html", {"form": form})
 
 
 @login_required
 def change_password(request):
-    """Смена пароля для авторизованного пользователя"""
-    if request.method == "POST":
-        form = ChangePasswordForm(request.POST, user=request.user)
-        if form.is_valid():
-            form.save()
-            # обновление сессии, чтобы пользователь остался в системе
-            update_session_auth_hash(request, request.user)
-            messages.success(request, "Пароль успешно изменён")
-            return redirect("users:user_detail", user_id=request.user.id)
-    else:
-        form = ChangePasswordForm(user=request.user)
+    form = ChangePasswordForm(request.POST or None, user=request.user)
+    if form.is_valid():
+        form.save()
+        update_session_auth_hash(request, request.user)
+        messages.success(request, "Пароль успешно изменён")
+        return redirect("users:user_detail", user_id=request.user.id)
     return render(request, "users/change_password.html", {"form": form})
 
 
-@login_required
-def skills_search(request):
-    """Поиск навыков для автокомплита. Возвращает JSON список {id,name}"""
-    q = request.GET.get("q", "").strip()
-    qs = Skill.objects.all()
+@login_required 
+def skills_search(request): 
+    """Поиск навыков для автокомплита. Возвращает JSON список {id,name}""" 
+    q = request.GET.get("q", "").strip() 
+    qs = Skill.objects.all() 
+    
     if q:
-        qs = qs.filter(name__icontains=q)
-    results = list(qs.order_by("name").values("id", "name")[:20])
+        qs = qs.filter(name__istartswith=q) 
+    
+    results = list(qs.order_by("name").values("id", "name")[:10]) 
+
     return JsonResponse(results, safe=False)
 
 
 @login_required
 @require_POST
 def add_skill(request):
-    """Добавить навык текущему пользователю. Ожидает JSON {skill_id} или {name}. Возвращает объект навыка в JSON."""
+    """Добавить навык текущему пользователю. 
+    Ожидает JSON {skill_id} или {name}. Возвращает объект навыка в JSON."""
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:

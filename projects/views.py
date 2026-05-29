@@ -1,29 +1,46 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.core.paginator import Paginator
+from django.db.models import Count
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
+from http import HTTPStatus
 
 from .models import Project
+from constants import STATUS_OPEN, STATUS_CLOSED, PAG_PER_PAGE
 from .forms import ProjectForm
+from core.service import paginate
 
 
 def project_list(request):
     """Список проектов"""
-    projects = Project.objects.all().order_by("-created_at")
-    paginator = Paginator(projects, 12)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-    return render(request, "projects/project_list.html", {"projects": page_obj.object_list})
+    projects = (
+        Project.objects.select_related("owner")
+        .annotate(participant_count=Count("participants"))
+        .order_by("-created_at")
+    )
+    page_obj = paginate(request, projects, PAG_PER_PAGE)
+    return render(
+        request,
+        "projects/project_list.html",
+        {"projects": page_obj.object_list, "STATUS_OPEN": STATUS_OPEN, "STATUS_CLOSED": STATUS_CLOSED},
+    )
 
 
 @ensure_csrf_cookie
 def project_detail(request, project_id):
     """Информация о проекте"""
-    project = get_object_or_404(Project, pk=project_id)
-    return render(request, "projects/project-details.html", {"project": project})
-
+    qs = (
+        Project.objects.select_related("owner")
+        .prefetch_related("participants")
+        .annotate(participant_count=Count("participants"))
+    )
+    project = get_object_or_404(qs, pk=project_id)
+    return render(
+        request,
+        "projects/project-details.html",
+        {"project": project, "STATUS_OPEN": STATUS_OPEN, "STATUS_CLOSED": STATUS_CLOSED},
+    )
 
 @login_required
 @require_POST
@@ -33,18 +50,18 @@ def toggle_participation(request, project_id):
     user = request.user
 
     if project.owner == user:
-        return JsonResponse({"status": "error", "error": "Owner cannot toggle participation"}, status=400)
+        return redirect("projects:project_detail", project_id=project_id)
 
     participating = project.participants.filter(pk=user.pk).exists()
-    if not participating and project.status == "closed":
-        return JsonResponse({"status": "error", "error": "Cannot join closed project"}, status=400)
+    if not participating and project.status == STATUS_CLOSED:
+        return redirect("projects:project_detail", project_id=project_id)
 
     if participating:
         project.participants.remove(user)
     else:
         project.participants.add(user)
 
-    return JsonResponse({"status": "ok", "participant": not participating})
+    return redirect("projects:project_detail", project_id=project_id)
 
 
 @login_required
@@ -55,13 +72,19 @@ def complete_project(request, project_id):
     user = request.user
 
     if project.owner != user:
-        return JsonResponse({"status": "error", "error": "Only owner can complete project"}, status=403)
-    if project.status != "open":
-        return JsonResponse({"status": "error", "error": "Project is not open"}, status=400)
+        return JsonResponse(
+            {"status": "error", "error": "Only owner can complete project"},
+            status=HTTPStatus.FORBIDDEN
+        )
+    if project.status != STATUS_OPEN:
+        return JsonResponse(
+            {"status": "error", "error": "Project is not open"},
+            status=HTTPStatus.BAD_REQUEST
+        )
 
-    project.status = "closed"
+    project.status = STATUS_CLOSED
     project.save(update_fields=["status"])
-    return JsonResponse({"status": "ok", "project_status": "closed"})
+    return JsonResponse({"status": "ok", "project_status": project.status})
 
 
 @login_required
@@ -83,4 +106,8 @@ def create_or_edit_project(request, project_id=None):
             return redirect("projects:project_detail", project_id=obj.id)
     else:
         form = ProjectForm(instance=project)
-    return render(request, "projects/create-project.html", {"form": form, "is_edit": bool(project)})
+    return render(
+        request,
+        "projects/create-project.html",
+        {"form": form, "is_edit": bool(project)}
+    )

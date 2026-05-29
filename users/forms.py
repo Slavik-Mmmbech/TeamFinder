@@ -1,4 +1,5 @@
 from django import forms
+
 from .models import User
 
 
@@ -33,6 +34,12 @@ class EditProfileForm(forms.ModelForm):
         widgets = {
             'about': forms.Textarea(attrs={'rows': 3}),
         }
+
+    def clean_github_url(self):
+        url = self.cleaned_data.get("github_url")
+        if url and not url.startswith("https://github.com/"):
+            raise forms.ValidationError("GitHub URL должен быть вида https://github.com/username")
+        return url
 
 
 class ChangePasswordForm(forms.Form):

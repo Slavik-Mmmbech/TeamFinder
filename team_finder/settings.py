@@ -22,7 +22,7 @@ if not SECRET_KEY:
 
 DEBUG = _auto_config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+ALLOWED_HOSTS = _auto_config("ALLOWED_HOSTS", default="localhost 127.0.0.1 testserver").split()
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -32,8 +32,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Локальные приложения
-    "projects",
     "users",
+    "projects",
 ]
 
 MIDDLEWARE = [
@@ -52,7 +52,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            BASE_DIR / f"templates_var{_auto_config('TASK_VERSION', default='1')}",
+            BASE_DIR / "templates_var2",
             DJANGO_FORMS_TEMPLATES,
         ],
         "APP_DIRS": True,
@@ -133,7 +133,10 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Use custom user model
+# RКастомная модель пользователя
 AUTH_USER_MODEL = "users.User"
+
+# Перенаправление нелогированных пользователей на страницу входа
+LOGIN_URL = "login"
 
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"

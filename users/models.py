@@ -2,7 +2,6 @@ import os
 import uuid
 from io import BytesIO
 from random import choice
-
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
@@ -10,6 +9,16 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from PIL import Image, ImageDraw, ImageFont
+
+from constants import (
+    AVATAR_COLORS,
+    AVATAR_SIZE,
+    AVATAR_FONT_NAME,
+    AVATAR_FONT_SIZE,
+    AVATAR_TEXT_COLOR,
+    AVATAR_IMAGE_FORMAT,
+    MAX_LENGTH_USER,
+)
 
 
 class HTTPSURLField(models.URLField):
@@ -20,7 +29,8 @@ class HTTPSURLField(models.URLField):
         name, path, args, kwargs = super().deconstruct()
         return name, "django.db.models.URLField", args, kwargs
 
-
+# Не успеваю перенести, нам сообщили, что курс закроется
+# сегодня, если критично и доступ останется то внесу изменения!!
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
@@ -56,7 +66,7 @@ def _avatar_upload_to(instance, filename):
 
 
 class Skill(models.Model):
-    name = models.CharField(max_length=124, unique=True)
+    name = models.CharField(max_length=MAX_LENGTH_USER, unique=True)
 
     class Meta:
         ordering = ["name"]
@@ -67,9 +77,12 @@ class Skill(models.Model):
 
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
-    name = models.CharField(max_length=124)
-    surname = models.CharField(max_length=124)
-    avatar = models.ImageField(upload_to=_avatar_upload_to, blank=True, null=True)
+    name = models.CharField(max_length=MAX_LENGTH_USER)
+    surname = models.CharField(max_length=MAX_LENGTH_USER)
+    avatar = models.ImageField(upload_to=_avatar_upload_to,
+                               blank=True,
+                               null=True
+    )
     phone = models.CharField(max_length=12, blank=True)
     github_url = HTTPSURLField(blank=True)
     about = models.TextField(max_length=256, blank=True)
@@ -101,25 +114,31 @@ class User(AbstractBaseUser, PermissionsMixin):
     def _generate_initial_avatar(self):
         # create a simple avatar with first letter
         letter = (self.name or "?")[0].upper()
-        size = (256, 256)
-        colors = ["#1abc9c", "#2ecc71", "#3498db", "#9b59b6", "#34495e", "#16a085", "#27ae60"]
-        bg = choice(colors)
+        size = AVATAR_SIZE
+        bg = choice(AVATAR_COLORS)
         img = Image.new("RGB", size, bg)
         draw = ImageDraw.Draw(img)
-        # try to use a truetype font if available, fallback to default
         try:
-            font_path = os.path.join(settings.BASE_DIR, "static", "fonts", "Neue_Haas_Grotesk_Display_Pro_75_Bold.otf")
-            font = ImageFont.truetype(font_path, 120)
+            font_path = os.path.join(settings.BASE_DIR,
+                                     "static",
+                                     "fonts",
+                                     AVATAR_FONT_NAME
+            )
+            font = ImageFont.truetype(font_path, AVATAR_FONT_SIZE)
         except Exception:
             font = ImageFont.load_default()
         w, h = draw.textsize(letter, font=font)
-        draw.text(((size[0]-w)/2, (size[1]-h)/2), letter, fill="#ffffff", font=font)
+        draw.text(
+            ((size[0]-w)/2, (size[1]-h)/2),
+            letter,
+            fill=AVATAR_TEXT_COLOR,
+            font=font,
+        )
 
         buf = BytesIO()
-        img.save(buf, format="PNG")
+        img.save(buf, format=AVATAR_IMAGE_FORMAT)
         buf.seek(0)
         name = f"avatar_{uuid.uuid4().hex}.png"
         self.avatar.save(name, ContentFile(buf.read()), save=False)
         buf.close()
-        # save again to update avatar field
         super().save(update_fields=["avatar"])
