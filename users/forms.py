@@ -30,7 +30,9 @@ class EditProfileForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ["name", "surname", "avatar", "phone", "github_url", "about", "skills"]
+        fields = ["name", "surname", "avatar", "phone", 
+                  "github_url", "about", "skills"
+        ]
         widgets = {
             'about': forms.Textarea(attrs={'rows': 3}),
         }
@@ -38,15 +40,20 @@ class EditProfileForm(forms.ModelForm):
     def clean_github_url(self):
         url = self.cleaned_data.get("github_url")
         if url and not url.startswith("https://github.com/"):
-            raise forms.ValidationError("GitHub URL должен быть вида https://github.com/username")
+            raise forms.ValidationError(
+                "GitHub URL должен быть вида https://github.com/username"
+            )
         return url
 
 
 class ChangePasswordForm(forms.Form):
     """Форма смены пароля: старый пароль и два раза новый"""
-    old_password = forms.CharField(label="Текущий пароль", widget=forms.PasswordInput)
-    new_password1 = forms.CharField(label="Новый пароль", widget=forms.PasswordInput)
-    new_password2 = forms.CharField(label="Новый пароль (повтор)", widget=forms.PasswordInput)
+    old_password = forms.CharField(label="Текущий пароль",
+                                   widget=forms.PasswordInput)
+    new_password1 = forms.CharField(label="Новый пароль",
+                                    widget=forms.PasswordInput)
+    new_password2 = forms.CharField(label="Новый пароль (повтор)",
+                                    widget=forms.PasswordInput)
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)

@@ -23,7 +23,10 @@ def project_list(request):
     return render(
         request,
         "projects/project_list.html",
-        {"projects": page_obj.object_list, "STATUS_OPEN": STATUS_OPEN, "STATUS_CLOSED": STATUS_CLOSED},
+        {"projects": page_obj.object_list,
+         "STATUS_OPEN": STATUS_OPEN,
+         "STATUS_CLOSED": STATUS_CLOSED
+        },
     )
 
 
@@ -39,7 +42,10 @@ def project_detail(request, project_id):
     return render(
         request,
         "projects/project-details.html",
-        {"project": project, "STATUS_OPEN": STATUS_OPEN, "STATUS_CLOSED": STATUS_CLOSED},
+        {"project": project,
+         "STATUS_OPEN": STATUS_OPEN,
+         "STATUS_CLOSED": STATUS_CLOSED
+         },
     )
 
 @login_required

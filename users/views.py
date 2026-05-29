@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Count
 from django.views.decorators.http import require_POST
 
-from constants import STATUS_OPEN, STATUS_CLOSED, PAG_PER_PAGE, RESULTS_END
+from constants import STATUS_OPEN, STATUS_CLOSED, PAG_PER_PAGE
 from .forms import RegistrationForm, LoginForm, EditProfileForm, ChangePasswordForm
 from .models import User, Skill
 from core.service import paginate
@@ -24,11 +24,15 @@ def participants_list(request):
         if active_filter == "owners-of-participating-projects":
             # Авторы проектов, в которых я участвую
             participating_projects = request.user.participated_projects.all()
-            participants = User.objects.filter(owned_projects__in=participating_projects).distinct()
+            participants = User.objects.filter(
+                owned_projects__in=participating_projects
+            ).distinct()
         elif active_filter == "participants-of-my-projects":
             # Участники моих проектов
             my_projects = request.user.owned_projects.all()
-            participants = User.objects.filter(participated_projects__in=my_projects).distinct()
+            participants = User.objects.filter(
+                participated_projects__in=my_projects
+            ).distinct()
         else:
             # Фильтры, требующие дополнительных полей модели
             participants = User.objects.none()
@@ -39,7 +43,13 @@ def participants_list(request):
 
     all_skills = Skill.objects.all()
 
-    return render(request, "users/participants.html", {"participants": page_obj.object_list, "all_skills": all_skills, "active_skill": skill, "active_filter": active_filter})
+    return render(request,
+                  "users/participants.html", 
+                  {"participants": page_obj.object_list,
+                    "all_skills": all_skills, 
+                    "active_skill": skill, 
+                    "active_filter": active_filter}
+    )
 
 
 def user_detail(request, user_id):
