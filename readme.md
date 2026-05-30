@@ -96,3 +96,5 @@ python manage.py runserver
 
 Автор: Кравченко Владислава
 Github профиль: https://github.com/Slavik-Mmmbech
+
+(Спасибо за качественные и полезные ревью!)
