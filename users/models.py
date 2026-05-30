@@ -1,13 +1,14 @@
-import os
-import uuid
 from io import BytesIO
+import os
 from random import choice
+import uuid
+
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
-from django.utils.translation import gettext_lazy as _
-from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
+from django.utils.translation import gettext_lazy as _
 from PIL import Image, ImageDraw, ImageFont
 
 from constants import (
@@ -17,8 +18,11 @@ from constants import (
     AVATAR_FONT_SIZE,
     AVATAR_TEXT_COLOR,
     AVATAR_IMAGE_FORMAT,
+    MAX_ABOUT_LENGTH,
     MAX_LENGTH_USER,
+    PHONE_LENGTH
 )
+from .managers import UserManager
 
 
 class HTTPSURLField(models.URLField):
@@ -28,36 +32,6 @@ class HTTPSURLField(models.URLField):
     def deconstruct(self):
         name, path, args, kwargs = super().deconstruct()
         return name, "django.db.models.URLField", args, kwargs
-
-# Не успеваю перенести, нам сообщили, что курс закроется
-# сегодня, если критично и доступ останется то внесу изменения!!
-class UserManager(BaseUserManager):
-    use_in_migrations = True
-
-    def _create_user(self, email, password, **extra_fields):
-        if not email:
-            raise ValueError("The given email must be set")
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_user(self, email, password=None, **extra_fields):
-        extra_fields.setdefault("is_staff", False)
-        extra_fields.setdefault("is_superuser", False)
-        return self._create_user(email, password, **extra_fields)
-
-    def create_superuser(self, email, password, **extra_fields):
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
-
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superuser must have is_staff=True.")
-        if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Superuser must have is_superuser=True.")
-
-        return self._create_user(email, password, **extra_fields)
 
 
 def _avatar_upload_to(instance, filename):
@@ -83,9 +57,9 @@ class User(AbstractBaseUser, PermissionsMixin):
                                blank=True,
                                null=True
     )
-    phone = models.CharField(max_length=12, blank=True)
+    phone = models.CharField(max_length=PHONE_LENGTH, blank=True)
     github_url = HTTPSURLField(blank=True)
-    about = models.TextField(max_length=256, blank=True)
+    about = models.TextField(max_length=MAX_ABOUT_LENGTH, blank=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -126,8 +100,11 @@ class User(AbstractBaseUser, PermissionsMixin):
             )
             font = ImageFont.truetype(font_path, AVATAR_FONT_SIZE)
         except Exception:
-            font = ImageFont.load_default()
-        w, h = draw.textsize(letter, font=font)
+            font = ImageFont.load_default(size=AVATAR_FONT_SIZE)
+        bbox = draw.textbbox((0, 0), letter, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+
         draw.text(
             ((size[0]-w)/2, (size[1]-h)/2),
             letter,

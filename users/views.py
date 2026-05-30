@@ -8,10 +8,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Count
 from django.views.decorators.http import require_POST
 
-from constants import STATUS_OPEN, STATUS_CLOSED, PAG_PER_PAGE
-from .forms import RegistrationForm, LoginForm, EditProfileForm, ChangePasswordForm
-from .models import User, Skill
+from constants import PAG_PER_PAGE, SEARCH_RES, STATUS_OPEN, STATUS_CLOSED
 from core.service import paginate
+from .forms import ChangePasswordForm, EditProfileForm, LoginForm, RegistrationForm
+from .models import Skill, User
+
 
 def participants_list(request):
     skill = request.GET.get("skill")
@@ -55,10 +56,8 @@ def participants_list(request):
 def user_detail(request, user_id):
     user = get_object_or_404(User, pk=user_id)
     owned_projects = (
-        user.owned_projects.select_related("owner")
-        .annotate(participant_count=Count("participants"))
-        .order_by("-created_at")
-    )
+        user.owned_projects.select_related("owner").order_by("-created_at"))
+
     return render(
         request,
         "users/user-details.html",
@@ -133,7 +132,7 @@ def skills_search(request):
     if q:
         qs = qs.filter(name__istartswith=q) 
     
-    results = list(qs.order_by("name").values("id", "name")[:10]) 
+    results = list(qs.order_by("name").values("id", "name")[:SEARCH_RES]) 
 
     return JsonResponse(results, safe=False)
 

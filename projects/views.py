@@ -1,22 +1,23 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Count
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_POST
 from http import HTTPStatus
 
-from .models import Project
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render 
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_POST
+
 from constants import STATUS_OPEN, STATUS_CLOSED, PAG_PER_PAGE
-from .forms import ProjectForm
 from core.service import paginate
+from .forms import ProjectForm
+from .models import Project
+
 
 
 def project_list(request):
     """Список проектов"""
     projects = (
         Project.objects.select_related("owner")
-        .annotate(participant_count=Count("participants"))
+        .prefetch_related("participants")
         .order_by("-created_at")
     )
     page_obj = paginate(request, projects, PAG_PER_PAGE)
@@ -36,7 +37,6 @@ def project_detail(request, project_id):
     qs = (
         Project.objects.select_related("owner")
         .prefetch_related("participants")
-        .annotate(participant_count=Count("participants"))
     )
     project = get_object_or_404(qs, pk=project_id)
     return render(

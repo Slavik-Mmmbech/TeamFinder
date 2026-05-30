@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.urls import reverse
 
-from constants import STATUS_OPEN, STATUS_CHOICES, MAX_LENGTH_RROJECT
+from constants import MAX_LENGTH_RROJECT, MAX_STATUS_LENGTH, STATUS_CHOICES, STATUS_OPEN
 
 
 class HTTPSURLField(models.URLField):
@@ -24,7 +24,7 @@ class Project(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     github_url = HTTPSURLField(blank=True)
-    status = models.CharField(max_length=6,
+    status = models.CharField(max_length=MAX_STATUS_LENGTH,
                               choices=STATUS_CHOICES,
                               default=STATUS_OPEN
                               )
